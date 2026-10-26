@@ -65,7 +65,7 @@ For each metric, the dataset-level score is the arithmetic mean of the per-image
 
 ## Repeated-run uncertainty
 
-Train each model independently using different random seeds, evaluate each resulting checkpoint on the same fixed test manifest, and save each run to its own output directory. Do not count repeated inference of one checkpoint as independent training runs.
+Train model independently using different random seeds, evaluate each resulting checkpoint on the same fixed test manifest, and save each run to its own output directory. Do not count repeated inference of one checkpoint as independent training runs.
 
 At least two independent run directories are required; more runs are preferable for a stable uncertainty estimate. Each run directory must contain `per_image_metrics.csv` produced by `evaluate.py`.
 
