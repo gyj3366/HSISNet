@@ -83,7 +83,3 @@ The script verifies that all runs contain the same `pair_id` and `pair_type` row
 - `uncertainty_metadata.json`: the run list and statistical procedure.
 
 The confidence interval describes uncertainty across the supplied independent run-level means. It is not valid to use repeated evaluations of the same fixed checkpoint as independent training runs. Externally reported baseline values cannot be assigned run-level uncertainty unless the corresponding methods are independently reproduced.
-
-## Reproducibility notes
-
-Use the same fixed test image list, cover-secret pairing, image preprocessing, model configuration, and metric implementation across all reproduced methods. Archive the manifest, commands, output CSV files, and metadata JSON alongside the manuscript's supplementary material. Verify this implementation against the evaluation code used to produce the original manuscript results before replacing any reported values.
