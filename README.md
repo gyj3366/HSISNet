@@ -1,37 +1,41 @@
-# HSISNet Evaluation Code
+# HSISNet Evaluation
 
-This repository contains scripts for evaluating paired cover/stego and secret/recovered RGB images and summarizing uncertainty across independently trained runs.
+This repository provides evaluation scripts for paired cover/stego and secret/recovered RGB images, as well as statistical analysis of results across independently trained models.
 
-## Files
+## Repository Structure
 
-- `evaluate.py`: computes PSNR on the BT.601 Y channel, RGB SSIM, RGB MAE, CLIP image-embedding cosine similarity, and LPIPS. It exports per-image metrics, dataset-level summaries, and run metadata.
-- `summarize_runs.py`: aggregates results from independent runs and reports the mean, sample standard deviation, and two-sided Student-t confidence interval across run-level test-set means.
-- `requirements.txt`: Python package dependencies.
-- `.gitignore`: excludes caches, virtual environments, result folders, and common model checkpoint files from Git.
+- `evaluate.py`: Computes PSNR, SSIM, MAE, CLIP similarity, and LPIPS. Exports per-image metrics, dataset-level summaries, and run metadata.
+- `summarize_runs.py`: Aggregates results across independent runs and calculates the mean, sample standard deviation, and two-sided Student's t confidence interval.
+- `requirements.txt`: Lists the required Python packages.
+- `.gitignore`: Specifies files and directories excluded from version control.
 
-## Requirements and installation
+## Installation
 
-Python 3.9 or newer is recommended. Install the listed packages with:
+Python 3.9 or later is recommended.
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-The first evaluation may download the selected pretrained CLIP and LPIPS weights. Internet access may be required unless the weights are already cached locally.
+The evaluation uses pretrained CLIP and LPIPS models. Their weights are downloaded during the first evaluation if they are not locally cached.
 
-## Input manifest
+## Input Data
 
-Pass a CSV file to `evaluate.py` using `--manifest`. The CSV must contain these columns:
+The evaluation manifest is provided as a CSV file through `--manifest`, containing the following columns:
 
-- `pair_id`: unique identifier for each cover-secret pair.
-- `cover_path`: path to the cover image.
-- `secret_path`: path to the ground-truth secret image.
-- `stego_path`: path to the generated stego image.
-- `recovered_secret_path`: path to the recovered secret image.
+| Column | Description |
+|---|---|
+| `pair_id` | Unique image-pair identifier |
+| `cover_path` | Cover image path |
+| `secret_path` | Ground-truth secret image path |
+| `stego_path` | Generated stego image path |
+| `recovered_secret_path` | Recovered secret image path |
 
-Paths in `cover_path` and `secret_path` are resolved relative to `--reference-root`; paths in `stego_path` and `recovered_secret_path` are resolved relative to `--output-root`. Absolute paths are also accepted. Keep the manifest, image IDs, and pairing rules fixed across methods and runs. The manifest should refer to your actual evaluation data; do not use invented or placeholder image IDs in reported experiments.
+Reference image paths are resolved relative to `--reference-root`, while generated image paths are resolved relative to `--output-root`. Absolute paths are also supported.
 
-## Run evaluation
+## Evaluation
+
+The evaluation is performed using:
 
 ```bash
 python evaluate.py \
@@ -43,31 +47,35 @@ python evaluate.py \
 
 Optional arguments include `--device auto|cpu|cuda`, `--clip-model`, `--clip-pretrained`, `--lpips-net alex|vgg|squeeze`, and `--batch-size`.
 
-The evaluator does not resize images. Perform all required preprocessing before evaluation and ensure each reference/output pair has identical dimensions. Images are loaded as RGB and clipped to `[0, 255]`.
+Images are loaded in RGB format and clipped to \([0,255]\). The evaluator retains their original dimensions without additional resizing. Reference and generated images are evaluated in corresponding pairs.
 
-## Metric definitions
+## Evaluation Metrics
 
-- **PSNR:** computed per image on the BT.601 luma channel, `Y = 0.299R + 0.587G + 0.114B`, with a data range of 255.
-- **SSIM:** computed on RGB images with `data_range=255`, an `11 x 11` window, Gaussian weights, `sigma=1.5`, and channel-axis aggregation as implemented by scikit-image.
-- **MAE:** mean absolute error across all pixels and all three RGB channels, expressed in 8-bit intensity levels.
-- **CLIP similarity:** cosine similarity between L2-normalized image embeddings from the configured OpenCLIP model. OpenCLIP's configured image preprocessing is applied for this metric.
-- **LPIPS:** perceptual distance between RGB images represented as tensors in `[-1, 1]`, using the selected LPIPS backbone.
+- **PSNR:** Calculated on the BT.601 luminance (Y) channel:
+  \[
+  Y=0.299R+0.587G+0.114B
+  \]
+  with a dynamic range of 255.
+- **SSIM:** Calculated on RGB images with a data range of 255, an \(11\times11\) window, Gaussian weights, and \(\sigma=1.5\).
+- **MAE:** Calculated across all pixels and three RGB channels, expressed in 8-bit intensity levels.
+- **CLIP similarity:** Calculated as the cosine similarity between L2-normalized image embeddings using the configured OpenCLIP model.
+- **LPIPS:** Measures perceptual differences between RGB image tensors normalized to \([-1,1]\), using the selected pretrained backbone.
 
-For each metric, the dataset-level score is the arithmetic mean of the per-image scores. The script reports metrics separately for `cover_stego` and `secret_recovered` pairs. CLIP and LPIPS are complementary semantic/perceptual measures and should not be interpreted as substitutes for pixel-level metrics.
+Each metric is first calculated for individual image pairs. Dataset-level results are obtained by averaging the per-image scores. Cover/stego and secret/recovered results are reported separately.
 
-## Output files
+## Evaluation Outputs
 
-`evaluate.py` writes the following files to `--out-dir`:
+The following files are generated in the specified output directory:
 
-- `per_image_metrics.csv`: one row per image pair and pair type, with all metrics.
-- `summary_metrics.csv`: mean and standard deviation across test images for each metric and pair type. This standard deviation describes image-to-image variation, not training-run uncertainty.
-- `run_metadata.json`: manifest hash, metric settings, model configuration, and software versions.
+- `per_image_metrics.csv`: Per-image evaluation results for each image pair and pair type.
+- `summary_metrics.csv`: Dataset-level mean and standard deviation across test images.
+- `run_metadata.json`: Evaluation configuration, manifest hash, model settings, and software versions.
 
-## Repeated-run uncertainty
+## Repeated-Run Uncertainty Analysis
 
-Train model independently using different random seeds, evaluate each resulting checkpoint on the same fixed test manifest, and save each run to its own output directory. 
+Five independent training runs with different random seeds are evaluated using the same test manifest and evaluation protocol. Each run produces its own `per_image_metrics.csv`.
 
-At least two independent run directories are required; more runs are preferable for a stable uncertainty estimate. Each run directory must contain `per_image_metrics.csv` produced by `evaluate.py`.
+The results are aggregated using:
 
 ```bash
 python summarize_runs.py \
@@ -76,10 +84,12 @@ python summarize_runs.py \
   --confidence 0.95
 ```
 
-The script verifies that all runs contain the same `pair_id` and `pair_type` rows, then writes:
+The analysis calculates the mean and sample standard deviation across independent run-level test-set means, together with two-sided Student's t confidence intervals.
 
-- `run_level_means.csv`: test-set mean for each metric in each run.
-- `uncertainty_summary.csv`: mean of run-level means, sample standard deviation across runs, and the requested two-sided Student-t confidence interval.
-- `uncertainty_metadata.json`: the run list and statistical procedure.
+The following files are generated:
 
-The confidence interval describes uncertainty across the supplied independent run-level means. It is not valid to use repeated evaluations of the same fixed checkpoint as independent training runs. Externally reported baseline values cannot be assigned run-level uncertainty unless the corresponding methods are independently reproduced.
+- `run_level_means.csv`: Test-set mean metrics for each independent run.
+- `uncertainty_summary.csv`: Overall mean, sample standard deviation, and confidence intervals across runs.
+- `uncertainty_metadata.json`: Run identifiers and statistical analysis settings.
+
+The statistical analysis uses independently trained checkpoints as experimental units. Externally reported baseline results are presented separately from repeated-run uncertainty estimates.
